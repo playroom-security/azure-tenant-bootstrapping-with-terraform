@@ -1,0 +1,5 @@
+tenant_id               = "00000000-0000-0000-0000-000000000000"
+nonprod_subscription_id = "00000000-0000-0000-0000-000000000000"
+
+bootstrap_state_storage_account = "REPLACE_WITH_SA_NAME_FROM_BOOTSTRAP"
+bootstrap_state_resource_group  = "rg-terraform-state-mgmt-eastus"

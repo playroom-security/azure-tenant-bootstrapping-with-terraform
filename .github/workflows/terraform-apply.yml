@@ -1,0 +1,122 @@
+name: Terraform Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_dir:
+        description: "Terraform root to apply"
+        required: true
+        default: "bootstrap"
+        type: choice
+        options:
+          - bootstrap
+          - environments/prod
+          - environments/nonprod
+      confirm:
+        description: "Type APPLY to confirm you have reviewed the plan"
+        required: true
+        type: string
+
+# Prevent concurrent applies against the same target to avoid state corruption
+concurrency:
+  group: terraform-apply-${{ inputs.target_dir }}
+  cancel-in-progress: false  # Queue, don't cancel — applies must not be interrupted
+
+permissions:
+  id-token: write  # Required for OIDC authentication to Azure
+  contents: read
+
+jobs:
+  validate-confirmation:
+    name: Validate Confirmation Input
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check confirmation word
+        run: |
+          if [ "${{ inputs.confirm }}" != "APPLY" ]; then
+            echo "ERROR: You must type APPLY in the confirmation field to proceed."
+            exit 1
+          fi
+
+  terraform-apply:
+    name: Terraform Apply — ${{ inputs.target_dir }}
+    runs-on: ubuntu-latest
+    needs: validate-confirmation
+
+    # The 'production' environment enforces manual approval gates.
+    # Configure required reviewers in GitHub → Settings → Environments → production.
+    # The OIDC federated credential is scoped to this environment.
+    environment: production
+
+    defaults:
+      run:
+        working-directory: ${{ inputs.target_dir }}
+
+    env:
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC:        "true"
+      BACKEND_SA:          ${{ secrets.BACKEND_STORAGE_ACCOUNT }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Azure (OIDC — production environment credential)
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.7"
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=${BACKEND_SA}" \
+            -input=false
+
+      - name: Terraform Plan (pre-apply check)
+        id: plan
+        run: |
+          terraform plan \
+            -out=tfplan \
+            -input=false \
+            -no-color \
+            2>&1 | tee plan_output.txt
+
+      - name: Terraform Apply
+        run: |
+          terraform apply \
+            -auto-approve \
+            -input=false \
+            tfplan
+
+      - name: Print Apply Summary
+        if: always()
+        run: |
+          echo "### Terraform Apply — ${{ inputs.target_dir }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Triggered by:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Run ID:** ${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "<details><summary>Plan Output (applied)</summary>" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          head -c 60000 plan_output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "</details>" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Apply Logs (audit trail)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-apply-${{ inputs.target_dir == 'bootstrap' && 'bootstrap' || inputs.target_dir }}-${{ github.run_id }}
+          path: ${{ inputs.target_dir }}/plan_output.txt
+          retention-days: 90
+          if-no-files-found: ignore

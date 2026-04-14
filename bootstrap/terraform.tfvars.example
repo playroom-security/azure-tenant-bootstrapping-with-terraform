@@ -1,0 +1,36 @@
+# =============================================================================
+# terraform.tfvars.example
+#
+# Copy this file to terraform.tfvars and fill in your values.
+# terraform.tfvars is gitignored — never commit real values.
+# =============================================================================
+
+# Core Identity
+tenant_id                  = "00000000-0000-0000-0000-000000000000"
+management_subscription_id = "00000000-0000-0000-0000-000000000000"
+
+# Naming & Tagging
+prefix           = "contoso"       # 2-8 lowercase alphanumeric
+default_location = "eastus"
+cost_center      = "IT-Platform"
+owner_email      = "platform-team@contoso.com"
+
+# Management Groups (optional override)
+# management_group_prefix = "contoso"
+
+# Policies
+allowed_locations = ["eastus", "eastus2"]
+
+# Set to "DoNotEnforce" during initial rollout to audit before blocking
+policy_enforcement_mode = "Default"
+
+# RBAC — paste Entra ID group object IDs from Azure Portal → Entra ID → Groups
+platform_admin_group_id = "00000000-0000-0000-0000-000000000000"
+developer_group_id      = "00000000-0000-0000-0000-000000000000"
+
+# Logging
+log_analytics_retention_days = 90
+
+# Budget
+budget_amount_usd   = 500
+budget_alert_emails = ["platform-team@contoso.com", "finops@contoso.com"]
