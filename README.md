@@ -1,11 +1,3 @@
-<<<<<<< HEAD
-# azure-tenant-bootstrapping-with-terraform
-This script contains the baseline configurations to deploy a bootstrapped azure tenant infrastructure with Terraform
-=======
-<<<<<<< HEAD
-# azure-tenant-bootstrapping-with-terraform
-This script contains the baseline configurations to deploy a bootstrapped azure tenant infrastructure with Terraform
-=======
 # Azure Tenant Bootstrap — CAF Enterprise Scale
 
 A production-grade Terraform codebase that bootstraps an Azure tenant following Microsoft's [Cloud Adoption Framework (CAF) Enterprise Scale](https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/) landing zone pattern. All future Azure resource deployments flow through Terraform, executed by GitHub Actions using OIDC authentication (no long-lived secrets).
